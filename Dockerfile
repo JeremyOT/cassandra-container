@@ -2,7 +2,7 @@ FROM ubuntu:14.04
 MAINTAINER jeremyot@yix.io
 
 RUN apt-get update && apt-get install libtool autoconf automake build-essential g++ uuid-dev curl -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-RUN apt-get install libsnappy-dev pkg-config software-properties-common -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get update && apt-get install libsnappy-dev pkg-config software-properties-common -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN add-apt-repository -y ppa:webupd8team/java
 RUN echo debconf shared/accepted-oracle-license-v1-1 select true | debconf-set-selections
 RUN echo debconf shared/accepted-oracle-license-v1-1 seen true | debconf-set-selections
