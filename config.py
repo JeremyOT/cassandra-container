@@ -2,6 +2,8 @@
 import yaml
 import os
 import re
+import json
+from urllib2 import urlopen
 from sys import argv
 
 CONFIG_FILE = 'cassandra.yaml'
@@ -25,6 +27,12 @@ def _set(config, prop, value):
 def set_seeds(config, prop, seeds):
   config['seed_provider'] = [{'class_name': 'org.apache.cassandra.locator.SimpleSeedProvider', 'parameters': [{'seeds': seeds}]}]
 
+def set_etcd_seeds(config, prop, url):
+  root = json.loads(urlopen(url).read())
+  nodes = root['node'].get('nodes', [])
+  seeds = [n['value'] for n in nodes]
+  set_seeds(config, prop, seeds and ','.join(seeds) or '127.0.0.1')
+
 def set_logger(config, prop, logger):
   with open(os.path.join(input_path, 'log4j-server.properties'), 'rb') as f:
     logger_config = f.read()
@@ -43,6 +51,7 @@ set_logger(None, None, 'INFO,R') # default INFO,stdout,R
 
 HANDLERS = {
   'seeds': set_seeds,
+  'etcd_seeds': set_etcd_seeds,
   'logger': set_logger
 }
 
