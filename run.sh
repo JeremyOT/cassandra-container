@@ -16,12 +16,12 @@ case $1 in
     fi
     if [[ -n "$4" ]] && [[ "$4" != "--" ]]; then
       REMOTE_ADDR=$4
-      ARGS="${@:5}"
+      ARGS=("${@:5}")
     else
-      ARGS="${@:4}"
+      ARGS("${@:4}")
     fi
     cp -r /usr/lib/cassandra/conf/* /var/cassandra/config
-    /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "$ARGS"
+    /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "${ARGS[@]}"
     CASSANDRA_CONF=/var/cassandra/config /usr/bin/etcdmon -etcd="${ETCD_ADDR}" -remote="${REMOTE_ADDR}" -key="${SERVICE_KEY}/%H" -- /usr/lib/cassandra/bin/cassandra -f
     ;;
   etcdmon)
