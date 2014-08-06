@@ -20,9 +20,6 @@ case $1 in
     else
       ARGS="${@:4}"
     fi
-    echo /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "$ARGS"
-    echo CASSANDRA_CONF=/var/cassandra/config /usr/bin/etcdmon -etcd="${ETCD_ADDR}" -remote="${REMOTE_ADDR}" -key="${SERVICE_KEY}/%H" -- /usr/lib/cassandra/bin/cassandra -f
-    exit 1
     cp -r /usr/lib/cassandra/conf/* /var/cassandra/config
     /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "$ARGS"
     CASSANDRA_CONF=/var/cassandra/config /usr/bin/etcdmon -etcd="${ETCD_ADDR}" -remote="${REMOTE_ADDR}" -key="${SERVICE_KEY}/%H" -- /usr/lib/cassandra/bin/cassandra -f
