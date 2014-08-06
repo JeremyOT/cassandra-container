@@ -85,7 +85,7 @@ def set_logger(config, prop, logger):
 
 def infer_host(config, prop, address):
   try:
-    host = subprocess.Popen(['/usr/bin/etcdmon', '-etcd=%s' % address, '-gethost'], stdout=subprocess.PIPE).stdout.read()
+    host = subprocess.Popen(['/usr/bin/etcdmon', '-remote=%s' % address, '-gethost'], stdout=subprocess.PIPE).stdout.read()
     print "Inferred host:", host
   except Exception as e:
     print "Failed to infer host. Falling back to 127.0.0.1", e
