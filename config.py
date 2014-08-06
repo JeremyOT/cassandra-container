@@ -4,14 +4,25 @@ import os
 import re
 import json
 import subprocess
+import sys
 from urllib2 import urlopen
-from sys import argv
+from time import time, sleep
+
+# prevent buffering
+sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 CONFIG_FILE = 'cassandra.yaml'
 LOGGER_FILE = 'log4j-server.properties'
 
-input_path = argv[1]
-output_path = argv[2]
+input_path = sys.argv[1]
+output_path = sys.argv[2]
+
+# properties used by configuration itself
+config_properties = {
+  'join_wait': 10,
+  'join_timeout': float("inf"),
+  'join': False
+}
 
 with open(os.path.join(input_path, CONFIG_FILE), 'rb') as f:
   config = yaml.load(f.read())
@@ -24,7 +35,7 @@ def _set(config, prop, value):
       d[p] = {}
     d = d[p]
   if value is None:
-    del d[path[-1]]
+    d.pop(path[-1], None)
   else:
     d[path[-1]] = value
 
@@ -42,15 +53,28 @@ def set_seeds(config, prop, seeds):
 
 def set_etcd_seeds(config, prop, url):
   host = _get(config, 'listen_address', '127.0.0.1')
-  try:
-    root = json.loads(urlopen(url).read())
-    nodes = root['node'].get('nodes', [])
-    seeds = [n['value'] for n in nodes]
-    set_seeds(config, 'seeds', seeds and ','.join(seeds) or host)
-    print "Set seeds:", seeds and ','.join(seeds) or host
-  except Exception as e:
-    print "Failed to query seeds. Falling back to %s." % host, e
-    set_seeds(config, 'seeds', host)
+  start = time()
+  while 1:
+    try:
+      root = json.loads(urlopen(url).read())
+      nodes = root['node'].get('nodes', [])
+      if not nodes:
+        raise Exception('No seeds registered.')
+      seeds = ','.join([n['value'] for n in nodes])
+      set_seeds(config, 'seeds',  seeds)
+      print "Set seeds:", seeds
+      return
+    except Exception as e:
+      if not config_properties['join']:
+        print "Failed to query seeds. Falling back to %s." % host, e
+        set_seeds(config, 'seeds', host)
+        return
+      elif time() - start < config_properties['join_timeout']:
+        print "Failed to query seeds. Waiting %s sec." % config_properties['join_wait'], e
+        sleep(config_properties['join_wait'])
+      else:
+        print "Failed to query seeds within timeout. Exiting.", e
+        exit(1)
 
 def set_logger(config, prop, logger):
   with open(os.path.join(input_path, 'log4j-server.properties'), 'rb') as f:
@@ -69,6 +93,12 @@ def infer_host(config, prop, address):
   _set(config, 'listen_address', host)
   set_seeds(config, 'seeds', host)
 
+def set_join(config, prop, timeout):
+  print 'Configured to wait for seed nodes.'
+  config_properties['join'] = True
+  if timeout:
+    config_properties['join_timeout'] = float(timeout)
+
 def set_property(config, prop, value):
   data = yaml.load(value)
   _set(config, prop, data)
@@ -80,16 +110,17 @@ _set(config, 'rpc_address', '0.0.0.0')
 _set(config, 'listen_address', None)
 set_logger(None, None, 'INFO,R') # default INFO,stdout,R
 
-PRIORITY = ['infer_host', 'etcd_seeds', 'seeds']
+PRIORITY = ['infer_host', 'join', 'etcd_seeds', 'seeds']
 
 HANDLERS = {
   'seeds': set_seeds,
   'etcd_seeds': set_etcd_seeds,
   'logger': set_logger,
-  'infer_host': infer_host
+  'infer_host': infer_host,
+  'join': set_join,
 }
 
-properties = {k: v for k, v in (i.strip()[2:].split('=') for i in argv[3:] if i.startswith('--'))}
+properties = {k: v for k, v in ((j[0], len(j) > 1 and j[1] or None) for j in (i.strip()[2:].split('=') for i in sys.argv[3:] if i.startswith('--')))}
 print 'Setting properties:', properties.keys()
 for k in PRIORITY:
   if k in properties:
