@@ -14,11 +14,13 @@ case $1 in
     if [[ ETCD_ADDR != http* ]]; then
       ETCD_ADDR="http://${ETCD_ADDR}"
     fi
-    if [[ -n "$4" ]] && [[ "$4" != "--" ]]; then
+    if [[ -n "$4" ]] && [[ "$4" != --* ]]; then
       REMOTE_ADDR=$4
       ARGS=("${@:5}")
+    elif [[ "$4" == "--" ]]; then
+      ARGS=("${@:5}")
     else
-      ARGS("${@:4}")
+      ARGS=("${@:4}")
     fi
     cp -r /usr/lib/cassandra/conf/* /var/cassandra/config
     /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "${ARGS[@]}"
