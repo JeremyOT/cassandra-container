@@ -16,6 +16,7 @@ case $1 in
     fi
     if [[ -n "$4" ]] && [[ "$4" != --* ]]; then
       REMOTE_ADDR=$4
+      HOST=`/sbin/ip -4 -o addr show dev ${REMOTE_ADDR} 2>/dev/null | awk '{split($4,a,"/");print a[1]}'`
       ARGS=("${@:5}")
     elif [[ "$4" == "--" ]]; then
       ARGS=("${@:5}")
@@ -23,8 +24,13 @@ case $1 in
       ARGS=("${@:4}")
     fi
     cp -r /usr/lib/cassandra/conf/* /var/cassandra/config
-    /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "${ARGS[@]}"
-    CASSANDRA_CONF=/var/cassandra/config /usr/bin/etcdmon -etcd="${ETCD_ADDR}" -remote="${REMOTE_ADDR}" -key="${SERVICE_KEY}/%H" -- /usr/lib/cassandra/bin/cassandra -f
+    if [[ -n "$HOST" ]]; then
+      /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--listen_address=${HOST}" "${ARGS[@]}"
+      CASSANDRA_CONF=/var/cassandra/config /usr/bin/etcdmon -etcd="${ETCD_ADDR}" -host="${HOST}" -key="${SERVICE_KEY}/%H" -- /usr/lib/cassandra/bin/cassandra -f
+    else
+      /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "--etcd_seeds=${ETCD_ADDR}/v2/keys/${SERVICE_KEY}" "--infer_host=${REMOTE_ADDR}" "${ARGS[@]}"
+      CASSANDRA_CONF=/var/cassandra/config /usr/bin/etcdmon -etcd="${ETCD_ADDR}" -remote="${REMOTE_ADDR}" -key="${SERVICE_KEY}/%H" -- /usr/lib/cassandra/bin/cassandra -f
+    fi
     ;;
   etcdmon)
     ARGS="${@:2}"
@@ -47,7 +53,7 @@ case $1 in
     ;;
   *)
     cp -r /usr/lib/cassandra/conf/* /var/cassandra/config
-    /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "${@:2}"
+    /var/cassandra/config.py /usr/lib/cassandra/conf /var/cassandra/config "${@:1}"
     CASSANDRA_CONF=/var/cassandra/config /usr/lib/cassandra/bin/cassandra -f
     ;;
 esac

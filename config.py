@@ -21,7 +21,9 @@ output_path = sys.argv[2]
 config_properties = {
   'join_wait': 10,
   'join_timeout': float("inf"),
-  'join': False
+  'join': False,
+  'self_seed': True,
+  'seeds': ''
 }
 
 with open(os.path.join(input_path, CONFIG_FILE), 'rb') as f:
@@ -49,10 +51,12 @@ def _get(config, prop, default=None):
   return d.get(path[-1], default)
 
 def set_seeds(config, prop, seeds):
+  config_properties['self_seed'] = False
   config['seed_provider'] = [{'class_name': 'org.apache.cassandra.locator.SimpleSeedProvider', 'parameters': [{'seeds': str(seeds)}]}]
+  config_properties['seeds'] = str(seeds)
 
 def set_etcd_seeds(config, prop, url):
-  host = _get(config, 'listen_address', '127.0.0.1')
+  host = _get(config, 'listen_address')
   start = time()
   while 1:
     try:
@@ -89,15 +93,21 @@ def infer_host(config, prop, address):
     print "Inferred host:", host
   except Exception as e:
     print "Failed to infer host. Falling back to 127.0.0.1", e
-  _set(config, 'rpc_address', host)
   _set(config, 'listen_address', host)
-  set_seeds(config, 'seeds', host)
 
 def set_join(config, prop, timeout):
   print 'Configured to wait for seed nodes.'
   config_properties['join'] = True
   if timeout:
     config_properties['join_timeout'] = float(timeout)
+
+def set_listen_interface(config, prop, interface):
+  try:
+    address = subprocess.Popen("/sbin/ip -4 -o addr show dev %s | awk '{split($4,a,\"/\");print a[1]}'" % interface, shell=True, stdout=subprocess.PIPE).stdout.read().strip()
+    _set(config, 'listen_address', address)
+  except Exception as e:
+    print "Failed to find address for interface %s" % interface, e
+    exit(1)
 
 def set_property(config, prop, value):
   data = yaml.load(value)
@@ -107,12 +117,12 @@ _set(config, 'commitlog_directory', '/var/cassandra/commitlog')
 _set(config, 'saved_caches_directory', '/var/cassandra/saved_caches')
 _set(config, 'data_file_directories', ['/var/cassandra/data'])
 _set(config, 'rpc_address', '0.0.0.0')
-_set(config, 'listen_address', None)
-set_logger(None, None, 'INFO,R') # default INFO,stdout,R
+set_listen_interface(config, 'listen_interface', 'eth0')
 
-PRIORITY = ['infer_host', 'join', 'etcd_seeds', 'seeds']
+PRIORITY = ['infer_host', 'listen_interface', 'listen_address', 'join', 'etcd_seeds', 'seeds']
 
 HANDLERS = {
+  'listen_interface': set_listen_interface,
   'seeds': set_seeds,
   'etcd_seeds': set_etcd_seeds,
   'logger': set_logger,
@@ -121,7 +131,7 @@ HANDLERS = {
 }
 
 properties = {k: v for k, v in ((j[0], len(j) > 1 and j[1] or None) for j in (i.strip()[2:].split('=') for i in sys.argv[3:] if i.startswith('--')))}
-print 'Setting properties:', properties.keys()
+
 for k in PRIORITY:
   if k in properties:
     value = properties[k]
@@ -131,10 +141,18 @@ for k in PRIORITY:
 for prop, value in properties.iteritems():
   HANDLERS.get(prop, set_property)(config, prop, value)
 
+if config_properties['self_seed']:
+  host = _get(config, 'listen_address')
+  set_seeds(config, 'seeds', host)
+
 if properties:
   print 'Configured Cassandra:'
   for k, v in properties.iteritems():
     print '  %s = %s' % (k, v)
+
+print 'Listening on %s' % _get(config, 'listen_address')
+print 'RPC address %s' % _get(config, 'rpc_address')
+print 'Seeding with %s' % config_properties['seeds']
 
 with open(os.path.join(output_path, CONFIG_FILE), 'wb') as f:
   f.write(yaml.dump(config))
