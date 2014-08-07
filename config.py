@@ -56,7 +56,7 @@ def set_seeds(config, prop, seeds):
   config_properties['seeds'] = str(seeds)
 
 def set_etcd_seeds(config, prop, url):
-  host = _get(config, 'listen_address')
+  address = _get(config, 'listen_address')
   start = time()
   while 1:
     try:
@@ -70,8 +70,8 @@ def set_etcd_seeds(config, prop, url):
       return
     except Exception as e:
       if not config_properties['join']:
-        print "Failed to query seeds. Falling back to %s." % host, e
-        set_seeds(config, 'seeds', host)
+        print "Failed to query seeds. Falling back to %s." % address, e
+        set_seeds(config, 'seeds', address)
         return
       elif time() - start < config_properties['join_timeout']:
         print "Failed to query seeds. Waiting %s sec." % config_properties['join_wait'], e
@@ -87,13 +87,13 @@ def set_logger(config, prop, logger):
   with open(os.path.join(output_path, 'log4j-server.properties'), 'wb') as f:
     f.write(logger_config)
 
-def infer_host(config, prop, address):
+def infer_address(config, prop, remote):
   try:
-    host = subprocess.Popen(['/usr/bin/etcdmon', '-remote=%s' % address, '-gethost'], stdout=subprocess.PIPE).stdout.read()
-    print "Inferred host:", host
+    address = subprocess.Popen(['/usr/bin/etcdmon', '-remote=%s' % remote, '-getaddress'], stdout=subprocess.PIPE).stdout.read()
+    print "Inferred address:", address
   except Exception as e:
-    print "Failed to infer host. Falling back to 127.0.0.1", e
-  _set(config, 'listen_address', host)
+    print "Failed to infer address. Falling back to 127.0.0.1", e
+  _set(config, 'listen_address', address)
 
 def set_join(config, prop, timeout):
   print 'Configured to wait for seed nodes.'
@@ -119,14 +119,14 @@ _set(config, 'data_file_directories', ['/var/cassandra/data'])
 _set(config, 'rpc_address', '0.0.0.0')
 set_listen_interface(config, 'listen_interface', 'eth0')
 
-PRIORITY = ['infer_host', 'listen_interface', 'listen_address', 'join', 'etcd_seeds', 'seeds']
+PRIORITY = ['infer_address', 'listen_interface', 'listen_address', 'join', 'etcd_seeds', 'seeds']
 
 HANDLERS = {
   'listen_interface': set_listen_interface,
   'seeds': set_seeds,
   'etcd_seeds': set_etcd_seeds,
   'logger': set_logger,
-  'infer_host': infer_host,
+  'infer_address': infer_address,
   'join': set_join,
 }
 
@@ -142,8 +142,8 @@ for prop, value in properties.iteritems():
   HANDLERS.get(prop, set_property)(config, prop, value)
 
 if config_properties['self_seed']:
-  host = _get(config, 'listen_address')
-  set_seeds(config, 'seeds', host)
+  address = _get(config, 'listen_address')
+  set_seeds(config, 'seeds', address)
 
 if properties:
   print 'Configured Cassandra:'
