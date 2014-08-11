@@ -16,7 +16,7 @@ case $1 in
     fi
     if [[ -n "$4" ]] && [[ "$4" != --* ]]; then
       REMOTE_ADDR_OR_IFACE=$4
-      ADDR=`/sbin/ip -4 -o addr show dev ${REMOTE_ADDR_OR_IFACE} 2>/dev/null | awk '{split($4,a,"/");print a[1]}'`
+      ADDR=`/usr/bin/address -i ${REMOTE_ADDR_OR_IFACE}`
       ARGS=("${@:5}")
     elif [[ "$4" == "--" ]]; then
       ARGS=("${@:5}")

@@ -89,7 +89,7 @@ def set_logger(config, prop, logger):
 
 def infer_address(config, prop, remote):
   try:
-    address = subprocess.Popen(['/usr/bin/etcdmon', '-remote=%s' % remote, '-getaddress'], stdout=subprocess.PIPE).stdout.read()
+    address = subprocess.Popen(['/usr/bin/address', '-r', remote], stdout=subprocess.PIPE).stdout.read().strip()
     print "Inferred address:", address
   except Exception as e:
     print "Failed to infer address. Falling back to 127.0.0.1", e
@@ -103,7 +103,7 @@ def set_join(config, prop, timeout):
 
 def set_listen_interface(config, prop, interface):
   try:
-    address = subprocess.Popen("/sbin/ip -4 -o addr show dev %s | awk '{split($4,a,\"/\");print a[1]}'" % interface, shell=True, stdout=subprocess.PIPE).stdout.read().strip()
+    address = subprocess.Popen(["/usr/bin/address", "-i", interface], stdout=subprocess.PIPE).stdout.read().strip()
     _set(config, 'listen_address', address)
   except Exception as e:
     print "Failed to find address for interface %s" % interface, e
