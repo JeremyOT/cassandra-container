@@ -1,5 +1,5 @@
 FROM ubuntu:14.04
-MAINTAINER jeremyot@yix.io
+MAINTAINER jeremyot@gmail.com
 
 RUN apt-get update && apt-get install libtool autoconf automake build-essential g++ uuid-dev curl -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN apt-get update && apt-get install libsnappy-dev pkg-config software-properties-common -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
