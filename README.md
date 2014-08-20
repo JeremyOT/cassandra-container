@@ -73,7 +73,7 @@ Along with Cassandra, there are a few tools included with this container. They a
 Autoscaling may be used in a few different ways. Called with `autoscale 10.0.0.8:4001 service/cassandra`, Cassandra will infer its
 `listen_address` by making a connection to `10.0.0.8`. It will then attempt to retrieve a list of seeds by querying
 `http://10.0.0.8:4001/v2/keys/service/cassandra`, using its own address as the only seed if none are found. Finally, etcdmon will
-update `http://10.0.0.8:4001/v2/keys/service/cassandra/<node_address>` with `value=<node_address>&ttl=30`, pinging etcd every 10
+update `http://10.0.0.8:4001/v2/keys/service/cassandra/<node_address>` with `value={"host": <node_address>}&ttl=30`, pinging etcd every 10
 seconds. Alternatively `autoscale 10.0.0.8:4001 service/cassandra <interface_name>` may be used to bind to the specified interface,
 and `autoscale 10.0.0.8:4001 service/cassandra <remote_address>` will infer the address by making a connection to the specified
 remote address. If the third argument does not begin with `--`, it will first be treated as an interface, then used to infer

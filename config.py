@@ -64,7 +64,7 @@ def set_etcd_seeds(config, prop, url):
       nodes = root['node'].get('nodes', [])
       if not nodes:
         raise Exception('No seeds registered.')
-      seeds = ','.join([n['value'] for n in nodes])
+      seeds = ','.join([json.loads(n['value'])['host'] for n in nodes])
       set_seeds(config, 'seeds',  seeds)
       print "Set seeds:", seeds
       return
