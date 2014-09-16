@@ -94,6 +94,7 @@ def infer_address(config, prop, remote):
   except Exception as e:
     print "Failed to infer address. Falling back to 127.0.0.1", e
   _set(config, 'listen_address', address)
+  _set(config, 'broadcast_rpc_address', address)
 
 def set_join(config, prop, timeout):
   print 'Configured to wait for seed nodes.'
@@ -105,6 +106,7 @@ def set_listen_interface(config, prop, interface):
   try:
     address = subprocess.Popen(["/usr/bin/address", "-i", interface], stdout=subprocess.PIPE).stdout.read().strip()
     _set(config, 'listen_address', address)
+    _set(config, 'broadcast_rpc_address', address)
   except Exception as e:
     print "Failed to find address for interface %s" % interface, e
     exit(1)
