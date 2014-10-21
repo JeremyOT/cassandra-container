@@ -22,7 +22,7 @@ will start a three node cassandra cluster. You can verify with
 
 ```bash
 CASSANDRA_ADDR=`docker inspect --format "{{ .NetworkSettings.IPAddress }}" \`docker ps -lq\``
-docker run -it --rm jeremyot/cassandra nodetool status -h $CASSANDRA_ADDR
+docker run -it --rm jeremyot/cassandra nodetool -h $CASSANDRA_ADDR status
 ```
 
 You should see a normal `nodetool status` printout displaying information on all three nodes.

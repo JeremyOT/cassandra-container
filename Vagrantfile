@@ -7,7 +7,7 @@ end
 
 Vagrant.configure(vagrant_api_version) do |config|
   config.vm.define :server do |server|
-    server.vm.box = "chef/ubuntu-14.04"
+    server.vm.box = "phusion/ubuntu-14.04-amd64"
 
     server.vm.provider :virtualbox do |v, override|
       v.customize ["modifyvm", :id, "--memory", "2056"]
