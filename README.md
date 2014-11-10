@@ -1,6 +1,8 @@
 Cassandra
 =========
 
+Cassandra 2.1.1
+
 Usage
 -----
 In the simplest case, you can start a single node with `docker run jeremyot/cassandra`. The new node
