@@ -12,7 +12,6 @@ from time import time, sleep
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 CONFIG_FILE = 'cassandra.yaml'
-LOGGER_FILE = 'log4j-server.properties'
 
 input_path = sys.argv[1]
 output_path = sys.argv[2]
@@ -80,13 +79,6 @@ def set_etcd_seeds(config, prop, url):
         print "Failed to query seeds within timeout. Exiting.", e
         exit(1)
 
-def set_logger(config, prop, logger):
-  with open(os.path.join(input_path, 'log4j-server.properties'), 'rb') as f:
-    logger_config = f.read()
-  logger_config = re.sub(r'log4j\.rootLogger=.*', 'log4j.rootLogger=%s' % logger, logger_config)
-  with open(os.path.join(output_path, 'log4j-server.properties'), 'wb') as f:
-    f.write(logger_config)
-
 def infer_address(config, prop, remote):
   try:
     address = subprocess.Popen(['/usr/bin/address', '-r', remote], stdout=subprocess.PIPE).stdout.read().strip()
@@ -127,7 +119,6 @@ HANDLERS = {
   'listen_interface': set_listen_interface,
   'seeds': set_seeds,
   'etcd_seeds': set_etcd_seeds,
-  'logger': set_logger,
   'infer_address': infer_address,
   'join': set_join,
 }
