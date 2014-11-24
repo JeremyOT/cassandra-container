@@ -37,10 +37,10 @@ Vagrant.configure(vagrant_api_version) do |config|
     script = <<-SCRIPT
       ETCD=`docker run -d jeremyot/etcd`
       ETCD_ADDR=`docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${ETCD}`
-      docker run -d cassandra autoscale "${ETCD_ADDR}:4001" service/cassandra
+      docker run -d cassandra autoscale "${ETCD_ADDR}:4001" service/cassandra ---Dcassandra.consistent.rangemovement=false
     SCRIPT
     for i in 1..(instance_count-1) do
-      script += "\ndocker run -d cassandra autoscale \"${ETCD_ADDR}:4001\" service/cassandra --join"
+      script += "\ndocker run -d cassandra autoscale \"${ETCD_ADDR}:4001\" service/cassandra --join ---Dcassandra.consistent.rangemovement=false"
     end
     server.vm.provision :shell, :inline => script
   end

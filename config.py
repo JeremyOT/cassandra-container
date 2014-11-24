@@ -12,6 +12,7 @@ from time import time, sleep
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 CONFIG_FILE = 'cassandra.yaml'
+ENV_CONFIG_FILE = 'cassandra-env.sh'
 
 input_path = sys.argv[1]
 output_path = sys.argv[2]
@@ -22,11 +23,15 @@ config_properties = {
   'join_timeout': float("inf"),
   'join': False,
   'self_seed': True,
-  'seeds': ''
+  'seeds': '',
+  'java_opts': []
 }
 
 with open(os.path.join(input_path, CONFIG_FILE), 'rb') as f:
   config = yaml.load(f.read())
+
+with open(os.path.join(input_path, ENV_CONFIG_FILE), 'rb') as f:
+  env_config = f.read()
 
 def _set(config, prop, value):
   d = config
@@ -132,6 +137,11 @@ for k in PRIORITY:
     HANDLERS.get(k, set_property)(config, k, value)
 
 for prop, value in properties.iteritems():
+  if not prop:
+      continue
+  if prop.startswith('-D'):
+    config_properties['java_opts'].append('%s=%s' % (prop, value))
+    continue
   HANDLERS.get(prop, set_property)(config, prop, value)
 
 if config_properties['self_seed']:
@@ -147,5 +157,11 @@ print 'Listening on %s' % _get(config, 'listen_address')
 print 'RPC address %s' % _get(config, 'rpc_address')
 print 'Seeding with %s' % config_properties['seeds']
 
+if config_properties['java_opts']:
+  env_config += '\nJVM_OPTS="$JVM_OPTS %s"\n' % ' '.join(config_properties['java_opts'])
+
 with open(os.path.join(output_path, CONFIG_FILE), 'wb') as f:
   f.write(yaml.dump(config))
+
+with open(os.path.join(output_path, ENV_CONFIG_FILE), 'wb') as f:
+  f.write(env_config)
