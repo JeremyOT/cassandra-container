@@ -1,7 +1,7 @@
 Cassandra
 =========
 
-Cassandra 2.1.1
+Cassandra 2.1.2
 
 Usage
 -----
@@ -80,3 +80,5 @@ seconds. Alternatively `autoscale 10.0.0.8:4001 service/cassandra <interface_nam
 and `autoscale 10.0.0.8:4001 service/cassandra <remote_address>` will infer the address by making a connection to the specified
 remote address. If the third argument does not begin with `--`, it will first be treated as an interface, then used to infer
 the address if no matching interface is found. In all three cases, standard configuration options may be appended.
+
+Note: The address executable, used by the autoscale commands, is built from https://github.com/JeremyOT/address. It is pre-compiled to avoid the need to install Go inside the container.
