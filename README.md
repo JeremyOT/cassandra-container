@@ -29,6 +29,8 @@ docker run -it --rm jeremyot/cassandra nodetool -h $CASSANDRA_ADDR status
 
 You should see a normal `nodetool status` printout displaying information on all three nodes.
 
+To persist data across restarts, be sure to mount Cassandra's data directory with `-v /host/path/to/cassandra:/var/cassandra`.
+
 Configuration
 -------------
 
