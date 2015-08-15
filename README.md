@@ -1,7 +1,7 @@
 Cassandra
 =========
 
-Cassandra 2.0.15
+Cassandra 2.0.16
 
 Usage
 -----
