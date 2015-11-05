@@ -84,3 +84,16 @@ remote address. If the third argument does not begin with `--`, it will first be
 the address if no matching interface is found. In all three cases, standard configuration options may be appended.
 
 Note: The address executable, used by the autoscale commands, is built from https://github.com/JeremyOT/address. It is pre-compiled to avoid the need to install Go inside the container.
+
+Snapshots
+---------
+
+This container can be used to create and export Cassandra snapshots as tar files (optionall compressed) with the following command:
+
+```bash
+docker run -i --volumes-from=<running_cassandra_container_id> --net=container:<running_cassandra_container_id> jeremyot/cassandra snapshot <options> (<keyspace> ... ) (> <output.tar>)
+```
+
+Additional options let you specify compression, keyspaces and/or an output file to write to instead of stdout.
+
+Use `docker run -i jeremyot/cassandra snapshot --help` for more information.

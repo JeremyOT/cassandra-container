@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+from sys import stdout, stderr
+from os import walk, path, sep
+from time import time
+from subprocess import call, PIPE
+import tarfile
+
+
+def notify(*args):
+  print(*args, file=stderr)
+
+def nodetool(prefix_args, command, args):
+  cli_command = ['/usr/lib/cassandra/bin/nodetool']
+  if prefix_args.host:
+    cli_command.extend(('--host', prefix_args.host))
+  if prefix_args.port:
+    cli_command.extend(('--port', prefix_args.port))
+  if prefix_args.username:
+    cli_command.extend(('--username', prefix_args.username))
+  if prefix_args.password:
+    cli_command.extend(('--password', prefix_args.password))
+  cli_command.append(command)
+  cli_command.extend(args)
+  call(cli_command, stdout=PIPE)
+
+if __name__ == '__main__':
+  parser = ArgumentParser(description='''Take a Cassandra snapshot and write the output to an easy-to-restore tar archive.
+
+    Creates a snapshot and adds all related files to a tarball removing snapshots/<name> from the path, then deletes the snapshot.
+    run as follows:
+
+    `docker run -i --volumes-from=<cassandra_container> --net=container:<cassandra_container> jeremyot/cassandra snapshot <options> (<keyspace> ... ) (> snapshot.tar)`.''',
+    add_help=False)
+  parser.add_argument('-gz', '--gzip', dest='gzip', action='store_true', default=False, help='Add this flag to compress the snapshot with gzip (.tar.gz).')
+  parser.add_argument('-bz', '--bzip2', dest='bzip2', action='store_true', default=False, help='Add this flag to compress the snapshot with bzip2 (.tar.bz2).')
+  parser.add_argument('-o', '--output', dest='output', default=None, help='Write the output to a file instead of stdout.')
+  parser.add_argument('-kp', '--keep', dest='keep', action='store_true', default=False, help='Do not clean up after saving the snapshot.')
+  parser.add_argument('-cf', '--column-family', dest='column_family', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('-t', '--tag', dest='tag', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('-h', '--host', dest='host', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('-p', '--port', dest='port', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('-u', '--username', dest='username', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('-pw', '--password', dest='password', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('--help', action='help', help='Print this help message')
+  args, keyspaces = parser.parse_known_args()
+  keyspaces = list(set(keyspaces))
+  snapshot_tag = args.tag or str(int(time()))
+  notify('Creating snapshot:', snapshot_tag)
+  snapshot_args = ['--tag', snapshot_tag]
+  if args.column_family:
+    snapshot_args.extend('--column-family', args.column_family)
+  if keyspaces:
+    snapshot_args.extend(keyspaces)
+  nodetool(args, 'snapshot', snapshot_args)
+  snapshot_suffix = sep + path.join('snapshots', snapshot_tag)
+  notify(snapshot_suffix)
+  output = stdout
+  if args.output:
+    output = open(args.output, 'w')
+  mode = 'w|'
+  if args.gzip:
+    mode = 'w|gz'
+  if args.bzip2:
+    mode = 'w|bz2'
+  notify('Adding snapshot to archive...')
+  with tarfile.open(fileobj=output, mode=mode) as tar:
+    for root, dirs, files in walk('/var/cassandra/data'):
+      if not root.endswith(snapshot_suffix):
+        continue
+      adjusted_root = path.join(*(root[:-len(snapshot_suffix)].rsplit(sep, 2)[-2:]))
+      for snapshot_file in files:
+        snapshot_file_path = path.join(root, snapshot_file)
+        tarinfo = tar.gettarinfo(snapshot_file_path)
+        tarinfo.name = path.join(adjusted_root, snapshot_file)
+        with open(snapshot_file_path, 'rb') as f:
+          tar.addfile(tarinfo, f)
+  if not args.keep:
+    notify('Clearing snapshot', snapshot_tag)
+  nodetool(args, 'clearsnapshot', ('--tag', snapshot_tag))
+  notify('Finished')

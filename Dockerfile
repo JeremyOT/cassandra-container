@@ -19,6 +19,7 @@ COPY etcdmon /usr/bin/etcdmon
 COPY address /usr/bin/address
 COPY run.sh /var/cassandra/run.sh
 COPY config.py /var/cassandra/config.py
+COPY snapshot /var/cassandra/snapshot
 VOLUME ["/var/cassandra/commitlog", "/var/cassandra/saved_caches", "/var/cassandra/data", "/var/cassandra/config", "/var/logs/cassandra"]
 EXPOSE 7199 7000 7001 9160 9042
 ENTRYPOINT ["/var/cassandra/run.sh"]
