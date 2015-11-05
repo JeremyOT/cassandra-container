@@ -7,6 +7,9 @@ case $1 in
   cqlsh)
     /usr/lib/cassandra/bin/cqlsh "${@:2}"
     ;;
+  snapshot)
+    /var/cassandra/snapshot "${@:2}"
+    ;;
   autoscale)
     ETCD_ADDR=$2
     SERVICE_KEY=$3
