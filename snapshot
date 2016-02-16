@@ -44,6 +44,7 @@ if __name__ == '__main__':
   parser.add_argument('-p', '--port', dest='port', default=None, help='(Optional) See the nodetool documentation.')
   parser.add_argument('-u', '--username', dest='username', default=None, help='(Optional) See the nodetool documentation.')
   parser.add_argument('-pw', '--password', dest='password', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('--keep-cf-id', dest='keep_cf_id', action='store_true', default=False, help='By default snapshot table names are truncated to friendly versions. Set this flag to keep them untouched (e.g. my_cf-a03c1200d47d11e5837ad3724d39b2c3 instead of my_cf)')
   parser.add_argument('--help', action='help', help='Print this help message')
   args, keyspaces = parser.parse_known_args()
   keyspaces = list(set(keyspaces))
@@ -71,6 +72,7 @@ if __name__ == '__main__':
       if not root.endswith(snapshot_suffix):
         continue
       adjusted_root = path.join(*(root[:-len(snapshot_suffix)].rsplit(sep, 2)[-2:]))
+      adjusted_root = adjusted_root if args.keep_cf_id else adjusted_root[:adjusted_root.rindex('-')]
       for snapshot_file in files:
         snapshot_file_path = path.join(root, snapshot_file)
         tarinfo = tar.gettarinfo(snapshot_file_path)

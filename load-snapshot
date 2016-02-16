@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from argparse import ArgumentParser
+from sys import stdout, stderr, stdin
+from os import walk, path, sep, makedirs, fdopen, remove
+from time import time
+from shutil import rmtree, copyfileobj
+from subprocess import call, PIPE
+from tempfile import mkdtemp, mkstemp
+import tarfile
+
+
+def notify(*args):
+  print(*args, file=stderr)
+
+def sstableloader(prefix_args, command):
+  cli_command = ['/usr/lib/cassandra/bin/sstableloader']
+  if prefix_args.username:
+    cli_command.extend(('--username', prefix_args.username))
+  if prefix_args.password:
+    cli_command.extend(('--password', prefix_args.password))
+  if prefix_args.nodes:
+    cli_command.extend(('--nodes', prefix_args.nodes))
+  if prefix_args.ignore:
+    cli_command.extend(('--ignore', prefix_args.ignore))
+  cli_command.extend(command)
+  call(cli_command, stdout=PIPE)
+
+def extract(input_file, destination):
+  with tarfile.open(fileobj=input_file, mode='r') as tar:
+    tar.extractall(path=destination)
+
+if __name__ == '__main__':
+  parser = ArgumentParser(description='''Take a Cassandra snapshot and write the output to an easy-to-restore tar archive.
+
+    Creates a snapshot and adds all related files to a tarball removing snapshots/<name> from the path, then deletes the snapshot.
+    run as follows:
+
+    `docker run -i --volumes-from=<cassandra_container> --net=container:<cassandra_container> jeremyot/cassandra snapshot <options> (<keyspace> ... ) (> snapshot.tar)`.''',
+    add_help=False)
+  parser.add_argument('-d', '--nodes', dest='nodes', default='127.0.0.1', help='The list of nodes to connect to for initial cluster information.')
+  parser.add_argument('-i', '--ignore', dest='ignore', default=None, help='Do not stream to this comma separated list of nodes.')
+  parser.add_argument('-cf', '--column-family', dest='column_family', default=None, help='Load only the specified column family (e.g. --column-family=<my_keyspace.my_column_family>')
+  parser.add_argument('-u', '--username', dest='username', default=None, help='(Optional) See the sstableloader documentation.')
+  parser.add_argument('-pw', '--password', dest='password', default=None, help='(Optional) See the sstableloader documentation.')
+  parser.add_argument('--snapshot-root', dest='snapshot_root', default=None, help='The path to the root directory of a snapshot in the local filesystem (or mounted volume).')
+  parser.add_argument('-s', '--snapshot', dest='snapshot', default=None, help='The path to a snapshot archive in the local filesystem (or mounted volume).')
+  parser.add_argument('--help', action='help', help='Print this help message')
+  args, keyspaces = parser.parse_known_args()
+
+  snapshot_root = args.snapshot_root
+  delete_after_load = False
+  if not snapshot_root:
+    delete_after_load = True
+    delete_snapshot_after_load = False
+    snapshot_root = mkdtemp()
+    snapshot_file = args.snapshot
+    if not snapshot_file:
+      delete_snapshot_after_load = True
+      temp_file_fd, snapshot_file = mkstemp()
+      with fdopen(temp_file_fd, 'wb') as temp_file:
+        notify('Saving snapshot to %s' % snapshot_file)
+        copyfileobj(stdin, temp_file)
+    notify('Extracting snapshot from %s to %s' % (snapshot_file, snapshot_root))
+    with open(snapshot_file, 'rb') as f:
+      extract(f, snapshot_root)
+    if delete_snapshot_after_load:
+      remove(snapshot_file)
+  notify('Importing data...')
+  root_component_count = len(snapshot_root.split(sep))
+  column_family = args.column_family and args.column_family.split('.', 1)
+  if column_family and len(column_family) != 2:
+    notify('Invalid column family: %s' % args.column_family)
+    exit(-1)
+  for root, dirs, _ in walk(snapshot_root):
+    if len(root.split(sep)) != root_component_count + 1:
+      continue
+    if column_family and not root.endswith('%s%s' % (sep, column_family[0])):
+      continue
+    for d in dirs:
+      if column_family and d != column_family[1] and not d.startswith('%s-' % column_family[1]):
+        continue
+      notify('Importing data from %s' % path.join(root, d))
+      sstableloader(args, [path.join(root, d)])
+  if delete_after_load:
+    notify('Removing %s' % snapshot_root)
+    rmtree(snapshot_root)
+  notify('Finished')

@@ -35,7 +35,7 @@ Vagrant.configure(vagrant_api_version) do |config|
       d.build_image '/vagrant', args: '-t cassandra'
     end
     script = <<-SCRIPT
-      ETCD=`docker run -d jeremyot/etcd`
+      ETCD=`docker run -d jeremyot/etcd auto`
       ETCD_ADDR=`docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${ETCD}`
       docker run -d cassandra autoscale "${ETCD_ADDR}:4001" service/cassandra ---Dcassandra.consistent.rangemovement=false
     SCRIPT

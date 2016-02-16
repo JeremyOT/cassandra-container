@@ -7,8 +7,14 @@ case $1 in
   cqlsh)
     /usr/lib/cassandra/bin/cqlsh "${@:2}"
     ;;
+  sstableloader)
+    /usr/lib/cassandra/bin/sstableloader "${@:2}"
+    ;;
   snapshot)
-    /var/cassandra/snapshot "${@:2}"
+    /usr/bin/snapshot "${@:2}"
+    ;;
+  load-snapshot)
+    /usr/bin/load-snapshot "${@:2}"
     ;;
   autoscale)
     ETCD_ADDR=$2
