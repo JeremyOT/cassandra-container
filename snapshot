@@ -3,9 +3,10 @@
 from __future__ import print_function
 from argparse import ArgumentParser
 from sys import stdout, stderr
-from os import walk, path, sep
+from os import walk, path, sep, makedirs, link
 from time import time
 from subprocess import call, PIPE
+from shutil import copy2, move, rmtree
 import tarfile
 
 
@@ -26,6 +27,16 @@ def nodetool(prefix_args, command, args):
   cli_command.extend(args)
   call(cli_command, stdout=PIPE)
 
+def store_snapshot(args, snapshot_suffix, add_file_callback):
+  for root, dirs, files in walk('/var/cassandra/data'):
+    if not root.endswith(snapshot_suffix):
+      continue
+    adjusted_root = path.join(*(root[:-len(snapshot_suffix)].rsplit(sep, 2)[-2:]))
+    adjusted_root = adjusted_root if args.keep_cf_id else adjusted_root[:adjusted_root.rindex('-')]
+    for snapshot_file in files:
+      snapshot_file_path = path.join(root, snapshot_file)
+      add_file_callback(snapshot_file_path, path.join(adjusted_root, snapshot_file))
+
 if __name__ == '__main__':
   parser = ArgumentParser(description='''Take a Cassandra snapshot and write the output to an easy-to-restore tar archive.
 
@@ -44,6 +55,7 @@ if __name__ == '__main__':
   parser.add_argument('-p', '--port', dest='port', default=None, help='(Optional) See the nodetool documentation.')
   parser.add_argument('-u', '--username', dest='username', default=None, help='(Optional) See the nodetool documentation.')
   parser.add_argument('-pw', '--password', dest='password', default=None, help='(Optional) See the nodetool documentation.')
+  parser.add_argument('-d', '--directory', dest='directory', default=None, help='Move the snapshot to the specified directory (e.g. --directory=/my/snapshot/volume) instead of writing to a tar archive.')
   parser.add_argument('--keep-cf-id', dest='keep_cf_id', action='store_true', default=False, help='By default snapshot table names are truncated to friendly versions. Set this flag to keep them untouched (e.g. my_cf-a03c1200d47d11e5837ad3724d39b2c3 instead of my_cf)')
   parser.add_argument('--help', action='help', help='Print this help message')
   args, keyspaces = parser.parse_known_args()
@@ -58,28 +70,43 @@ if __name__ == '__main__':
   nodetool(args, 'snapshot', snapshot_args)
   snapshot_suffix = sep + path.join('snapshots', snapshot_tag)
   notify(snapshot_suffix)
-  output = stdout
-  if args.output:
-    output = open(args.output, 'w')
-  mode = 'w|'
-  if args.gzip:
-    mode = 'w|gz'
-  if args.bzip2:
-    mode = 'w|bz2'
-  notify('Adding snapshot to archive...')
-  with tarfile.open(fileobj=output, mode=mode) as tar:
-    for root, dirs, files in walk('/var/cassandra/data'):
-      if not root.endswith(snapshot_suffix):
-        continue
-      adjusted_root = path.join(*(root[:-len(snapshot_suffix)].rsplit(sep, 2)[-2:]))
-      adjusted_root = adjusted_root if args.keep_cf_id else adjusted_root[:adjusted_root.rindex('-')]
-      for snapshot_file in files:
-        snapshot_file_path = path.join(root, snapshot_file)
+  if args.directory:
+    if path.exists(args.directory):
+      notify('Clearing existing snapshot from %s' % args.directory)
+      rmtree(args.directory)
+    makedirs(args.directory)
+    def move_file(snapshot_file_path, target_snapshot_file_path):
+      target_path = path.join(args.directory, target_snapshot_file_path)
+      parent = path.dirname(target_path)
+      if not path.isdir(parent):
+        makedirs(parent)
+      if args.keep:
+        try:
+          link(snapshot_file_path, target_path)
+        except OSError:
+          copy2(snapshot_file_path, target_path)
+      else:
+        move(snapshot_file_path, target_path)
+    store_snapshot(args, snapshot_suffix, move_file)
+    notify('Snapshot stored in %s' % args.directory)
+  else:
+    output = stdout
+    if args.output:
+      output = open(args.output, 'w')
+    mode = 'w|'
+    if args.gzip:
+      mode = 'w|gz'
+    if args.bzip2:
+      mode = 'w|bz2'
+    notify('Adding snapshot to archive...')
+    with tarfile.open(fileobj=output, mode=mode) as tar:
+      def add_tarfile(snapshot_file_path, target_snapshot_file_path):
         tarinfo = tar.gettarinfo(snapshot_file_path)
-        tarinfo.name = path.join(adjusted_root, snapshot_file)
+        tarinfo.name = target_snapshot_file_path
         with open(snapshot_file_path, 'rb') as f:
           tar.addfile(tarinfo, f)
+      store_snapshot(args, snapshot_suffix, add_tarfile)
   if not args.keep:
     notify('Clearing snapshot', snapshot_tag)
-  nodetool(args, 'clearsnapshot', ('--tag', snapshot_tag))
+    nodetool(args, 'clearsnapshot', ('--tag', snapshot_tag))
   notify('Finished')
