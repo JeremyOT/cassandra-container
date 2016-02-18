@@ -32,7 +32,7 @@ def store_snapshot(args, snapshot_suffix, add_file_callback):
     if not root.endswith(snapshot_suffix):
       continue
     adjusted_root = path.join(*(root[:-len(snapshot_suffix)].rsplit(sep, 2)[-2:]))
-    adjusted_root = adjusted_root if args.keep_cf_id else adjusted_root[:adjusted_root.rindex('-')]
+    adjusted_root = adjusted_root if args.keep_cf_id else (adjusted_root[:adjusted_root.rindex('-')] if '-' in adjusted_root else adjusted_root)
     for snapshot_file in files:
       snapshot_file_path = path.join(root, snapshot_file)
       add_file_callback(snapshot_file_path, path.join(adjusted_root, snapshot_file))
